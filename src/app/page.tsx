@@ -2,9 +2,36 @@
 
 import { Stack, Typography, Card, CardContent, Divider, Box, Chip } from "@mui/material";
 import { useEffect, useState } from "react";
+import moment from "moment";
+
+type Op = {
+  opId: number;
+  publicId: string;
+  opTitle: string;
+  opDate?: string,
+  filledQuantity: number,
+  operatorsNeeded: number;
+  startTime?: string;
+  endTime?: string;
+  estTotalHours: number,
+  checkInCode: string,
+  checkOutCode: string,
+  checkInExpirationTime: string,
+  checkOutExpirationTime: string,
+  operators?: Operators[];
+};
+
+type Operators = {
+  id: number,
+  firstName: string,
+  lastName: string,
+  opsCompleted: number,
+  reliability: number,
+  endorsements: string[],
+};
 
 export default function Home() {
-  const [ops, setOps] = useState([]);
+  const [ops, setOps] = useState<Op[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,10 +55,11 @@ export default function Home() {
 
   return (
     <Stack spacing={3} sx={{p:3}}>
+      <Typography variant="h4" fontWeight="bold">Operator Dashboard</Typography>
       {ops?.map((op) => (
         <Card key={op.opId} variant="outlined">
           <CardContent>
-            <Typography variant="h4" fontWeight="bold">
+            <Typography variant="h5" fontWeight="bold">
               {op.opTitle}
             </Typography>
 
@@ -44,7 +72,11 @@ export default function Home() {
             </Typography>
 
             <Typography variant="body2" color="text.secondary">
-              Start & End Time: {}
+              Start Time: {moment(op.startTime).format("hh:mm A")}
+            </Typography>
+
+            <Typography variant="body2" color="text.secondary">
+              End Time: {moment(op.endTime).format("hh:mm A")}
             </Typography>
 
             <Divider sx={{ my:2}}/>
@@ -56,20 +88,18 @@ export default function Home() {
               py: 1,
               backgroundColor: "#f5f5f5",
               borderRadius: 1,
-              fontWeight: "bold",
-              fontSize: "12px",
             }}>
-              <Typography sx={{ width: "30%" }}>Operator Name</Typography>
-              <Typography sx={{ width: "20%" }}>Ops Completed</Typography>
-              <Typography sx={{ width: "20%" }}>Reliability</Typography>
-              <Typography sx={{ width: "30%" }}>Endorsements</Typography>
+              <Typography sx={{ width: "30%" }} variant="h6">Operator Name</Typography>
+              <Typography sx={{ width: "20%" }} variant="h6">Ops Completed</Typography>
+              <Typography sx={{ width: "20%" }} variant="h6">Reliability</Typography>
+              <Typography sx={{ width: "30%" }} variant="h6">Endorsements</Typography>
             </Box>
 
             <Divider sx={{ my: 1}} />
 
             <Stack spacing={1} >
               {op.operators?.map((operator) => (
-                <Box key={operator.operatorId}
+                <Box key={operator.id}
                   sx={{
                     display: "flex",
                     justifyContent: "space-between",
@@ -77,16 +107,15 @@ export default function Home() {
                     px: 1.5,
                     border: "1px solid #eee",
                     borderRadius: 2,
-                    fontSize: "12px",
                   }}
                 >
-                  <Typography sx={{ width: "30%" }}>{operator.firstName} {operator.lastName}</Typography>
-                  <Typography sx={{ width: "20%" }}>{operator.opsCompleted}</Typography>
-                  <Typography sx={{ width: "20%" }}>{operator.reliability}</Typography>
+                  <Typography sx={{ width: "30%" }} variant="body2">{operator.firstName} {operator.lastName}</Typography>
+                  <Typography sx={{ width: "20%" }} variant="body2">{operator.opsCompleted}</Typography>
+                  <Typography sx={{ width: "20%" }} variant="body2">{operator.reliability}</Typography>
                   {/* <Typography sx={{ width: "30%" }}>{operator.endorsements}</Typography> */}
                   <Stack direction="row" spacing={0.5} sx={{ width: "30%", flexWrap: "wrap"}}>
-                    {operator.endorsements?.map((endorsement) => (
-                      <Chip label={endorsement} size="small" variant="outlined"/>
+                    {operator.endorsements?.map((endorsement, index) => (
+                      <Chip key={index} label={endorsement} size="small" variant="outlined"/>
                     ))}
                   </Stack>
                 </Box>
