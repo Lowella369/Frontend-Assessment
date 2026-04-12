@@ -1,6 +1,6 @@
 "use client";
 
-import { Stack, Typography, Card, CardContent, Divider, Box, Chip } from "@mui/material";
+import { Stack, Typography, Card, CardContent, Divider, Box, Chip, Button } from "@mui/material";
 import { useEffect, useState } from "react";
 import moment from "moment";
 
@@ -30,9 +30,17 @@ type Operators = {
   endorsements: string[],
 };
 
+type CheckState = {
+  [key: number]: {
+    checkedIn: boolean;
+    checkedOut: boolean;
+  };
+};
+
 export default function Home() {
   const [ops, setOps] = useState<Op[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkState, setCheckState] = useState<CheckState>({});
 
   useEffect(() => {
     const fetchOps = async () => {
@@ -49,12 +57,43 @@ export default function Home() {
     fetchOps();
   }, []);
 
-  if (loading){
+  useEffect(() => {
+    const stored = localStorage.getItem("checkState");
+    if (stored) {
+      setCheckState(JSON.parse(stored));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("checkState", JSON.stringify(checkState));
+  }, [checkState]);
+
+  const handleCheckIn = (id: number) => {
+    setCheckState((prev) => ({
+      ...prev,
+      [id]: {
+        checkedIn: true,
+        checkedOut: false,
+      },
+    }));
+  };
+
+  const handleCheckOut = (id: number) => {
+    setCheckState((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        checkedOut: true,
+      },
+    }));
+  };
+
+  if (loading) {
     return <Typography variant="h1">Loading...</Typography>;
   }
 
   return (
-    <Stack spacing={3} sx={{p:3}}>
+    <Stack spacing={3} sx={{ p: 3 }}>
       <Typography variant="h4" fontWeight="bold">Operator Dashboard</Typography>
       {ops?.map((op) => (
         <Card key={op.opId} variant="outlined">
@@ -79,7 +118,7 @@ export default function Home() {
               End Time: {moment(op.endTime).format("hh:mm A")}
             </Typography>
 
-            <Divider sx={{ my:2}}/>
+            <Divider sx={{ my: 2 }} />
 
             <Box sx={{
               display: "flex",
@@ -89,37 +128,64 @@ export default function Home() {
               backgroundColor: "#f5f5f5",
               borderRadius: 1,
             }}>
-              <Typography sx={{ width: "30%" }} variant="h6">Operator Name</Typography>
-              <Typography sx={{ width: "20%" }} variant="h6">Ops Completed</Typography>
-              <Typography sx={{ width: "20%" }} variant="h6">Reliability</Typography>
-              <Typography sx={{ width: "30%" }} variant="h6">Endorsements</Typography>
+              <Typography sx={{ width: "25%" }} variant="h6">Operator Name</Typography>
+              <Typography sx={{ width: "15%" }} variant="h6">Ops Completed</Typography>
+              <Typography sx={{ width: "15%" }} variant="h6">Reliability</Typography>
+              <Typography sx={{ width: "25%" }} variant="h6">Endorsements</Typography>
+              <Typography sx={{ width: "20%" }} variant="h6"></Typography>
             </Box>
 
-            <Divider sx={{ my: 1}} />
+            <Divider sx={{ my: 1 }} />
 
             <Stack spacing={1} >
-              {op.operators?.map((operator) => (
-                <Box key={operator.id}
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    px: 1.5,
-                    border: "1px solid #eee",
-                    borderRadius: 2,
-                  }}
-                >
-                  <Typography sx={{ width: "30%" }} variant="body2">{operator.firstName} {operator.lastName}</Typography>
-                  <Typography sx={{ width: "20%" }} variant="body2">{operator.opsCompleted}</Typography>
-                  <Typography sx={{ width: "20%" }} variant="body2">{operator.reliability}</Typography>
-                  {/* <Typography sx={{ width: "30%" }}>{operator.endorsements}</Typography> */}
-                  <Stack direction="row" spacing={0.5} sx={{ width: "30%", flexWrap: "wrap"}}>
-                    {operator.endorsements?.map((endorsement, index) => (
-                      <Chip key={index} label={endorsement} size="small" variant="outlined"/>
-                    ))}
-                  </Stack>
-                </Box>
-              ))}
+              {op.operators?.map((operator) => {
+                const state = checkState[operator.id] || {
+                  checkedIn: false,
+                  checkedOut: false,
+                };
+
+                return (
+                  <Box key={operator.id}
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      px: 1.5,
+                      py: 1,
+                      border: "1px solid #eee",
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Typography sx={{ width: "25%" }} variant="body2">{operator.firstName} {operator.lastName}</Typography>
+                    <Typography sx={{ width: "15%" }} variant="body2">{operator.opsCompleted}</Typography>
+                    <Typography sx={{ width: "15%" }} variant="body2">{operator.reliability}</Typography>
+
+                    <Stack direction="row" spacing={0.5} sx={{ width: "25%", flexWrap: "wrap" }}>
+                      {operator.endorsements?.map((endorsement, index) => (
+                        <Chip key={index} label={endorsement} size="small" variant="outlined" />
+                      ))}
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} sx={{ width: "20%" }}>
+                      <Button size="small"
+                        variant="contained"
+                        onClick={() =>
+                          handleCheckIn(operator.id)
+                        }
+                        disabled={state.checkedIn}>
+                        Check In
+                      </Button>
+
+                      <Button size="small"
+                        variant="outlined"
+                        onClick={() => handleCheckOut(operator.id)}
+                        disabled={!state.checkedIn || state.checkedOut}>
+                        Check Out
+                      </Button>
+                    </Stack>
+                  </Box>
+                );
+              })}
             </Stack>
           </CardContent>
         </Card>
