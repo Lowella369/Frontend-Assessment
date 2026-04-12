@@ -1,6 +1,16 @@
 "use client";
 
-import { Stack, Typography, Card, CardContent, Divider, Box, Chip, Button } from "@mui/material";
+import {
+  Stack,
+  Typography,
+  Card,
+  CardContent,
+  Divider,
+  Box,
+  Chip,
+  Button,
+  TextField
+} from "@mui/material";
 import { useEffect, useState } from "react";
 import moment from "moment";
 
@@ -41,6 +51,7 @@ export default function Home() {
   const [ops, setOps] = useState<Op[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkState, setCheckState] = useState<CheckState>({});
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const fetchOps = async () => {
@@ -88,6 +99,24 @@ export default function Home() {
     }));
   };
 
+  const filteredOps = ops.filter((op) => {
+    const query = search.toLowerCase().trim();
+
+    if (!query) return true;
+
+    const operatorMatch = op.operators?.some((o) =>
+      `${o.firstName} ${o.lastName}`
+        .toLowerCase()
+        .includes(query)
+    );
+
+    return (
+      operatorMatch ||
+      op.opTitle?.toLowerCase().includes(query) ||
+      op.publicId?.toLowerCase().includes(query)
+    );
+  });
+
   if (loading) {
     return <Typography variant="h1">Loading...</Typography>;
   }
@@ -95,7 +124,15 @@ export default function Home() {
   return (
     <Stack spacing={3} sx={{ p: 3 }}>
       <Typography variant="h4" fontWeight="bold">Operator Dashboard</Typography>
-      {ops?.map((op) => (
+      <TextField
+        label="Search by Operator Name, Op Title, or Public ID"
+        fullWidth
+        variant="outlined"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        sx={{ mb: 2 }}
+      />
+      {filteredOps?.map((op) => (
         <Card key={op.opId} variant="outlined">
           <CardContent>
             <Typography variant="h5" fontWeight="bold">
@@ -138,54 +175,71 @@ export default function Home() {
             <Divider sx={{ my: 1 }} />
 
             <Stack spacing={1} >
-              {op.operators?.map((operator) => {
-                const state = checkState[operator.id] || {
-                  checkedIn: false,
-                  checkedOut: false,
-                };
-
-                return (
-                  <Box key={operator.id}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      px: 1.5,
-                      py: 1,
-                      border: "1px solid #eee",
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Typography sx={{ width: "25%" }} variant="body2">{operator.firstName} {operator.lastName}</Typography>
-                    <Typography sx={{ width: "15%" }} variant="body2">{operator.opsCompleted}</Typography>
-                    <Typography sx={{ width: "15%" }} variant="body2">{operator.reliability}</Typography>
-
-                    <Stack direction="row" spacing={0.5} sx={{ width: "25%", flexWrap: "wrap" }}>
-                      {operator.endorsements?.map((endorsement, index) => (
-                        <Chip key={index} label={endorsement} size="small" variant="outlined" />
-                      ))}
-                    </Stack>
-
-                    <Stack direction="row" spacing={1} sx={{ width: "20%" }}>
-                      <Button size="small"
-                        variant="contained"
-                        onClick={() =>
-                          handleCheckIn(operator.id)
-                        }
-                        disabled={state.checkedIn}>
-                        Check In
-                      </Button>
-
-                      <Button size="small"
-                        variant="outlined"
-                        onClick={() => handleCheckOut(operator.id)}
-                        disabled={!state.checkedIn || state.checkedOut}>
-                        Check Out
-                      </Button>
-                    </Stack>
-                  </Box>
+              {(() => {
+                const operatorList = (op.operators || []).slice().sort((a, b) =>
+                  a.firstName.toLowerCase().localeCompare(b.firstName.toLowerCase())
                 );
-              })}
+                
+                const matchingOperators = operatorList.filter((operator) =>
+                  `${operator.firstName} ${operator.lastName}`
+                    .toLowerCase()
+                    .includes(search.toLowerCase().trim())
+                );
+
+                const operatorsToShow =
+                  search.trim() && matchingOperators.length > 0
+                    ? matchingOperators
+                    : operatorList;
+
+                return operatorsToShow.map((operator) => {
+                  const state = checkState[operator.id] || {
+                    checkedIn: false,
+                    checkedOut: false,
+                  };
+
+                  return (
+                    <Box key={operator.id}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        px: 1.5,
+                        py: 1,
+                        border: "1px solid #eee",
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Typography sx={{ width: "25%" }} variant="body2">{operator.firstName} {operator.lastName}</Typography>
+                      <Typography sx={{ width: "15%" }} variant="body2">{operator.opsCompleted}</Typography>
+                      <Typography sx={{ width: "15%" }} variant="body2">{operator.reliability}</Typography>
+
+                      <Stack direction="row" spacing={0.5} sx={{ width: "25%", flexWrap: "wrap" }}>
+                        {operator.endorsements?.map((endorsement, index) => (
+                          <Chip key={index} label={endorsement} size="small" variant="outlined" />
+                        ))}
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} sx={{ width: "20%" }}>
+                        <Button size="small"
+                          variant="contained"
+                          onClick={() =>
+                            handleCheckIn(operator.id)
+                          }
+                          disabled={state.checkedIn}>
+                          Check In
+                        </Button>
+
+                        <Button size="small"
+                          variant="outlined"
+                          onClick={() => handleCheckOut(operator.id)}
+                          disabled={!state.checkedIn || state.checkedOut}>
+                          Check Out
+                        </Button>
+                      </Stack>
+                    </Box>
+                  );
+                });
+              })()}
             </Stack>
           </CardContent>
         </Card>
