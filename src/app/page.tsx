@@ -9,7 +9,11 @@ import {
   Box,
   Chip,
   Button,
-  TextField
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import moment from "moment";
@@ -50,28 +54,47 @@ type CheckState = {
 export default function Home() {
   const [ops, setOps] = useState<Op[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [checkState, setCheckState] = useState<CheckState>({});
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState("asc");
 
+  //Fetch Ops Data 
   useEffect(() => {
     const fetchOps = async () => {
-      const res = await fetch("https://frontend-challenge.veryableops.com/", {
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
-      const jsonData = await res.json();
+      try {
+        const response = await fetch("https://frontend-challenge.veryableops.com/", {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
 
-      setOps(jsonData);
-      setLoading(false);
+        if (!response.ok) {
+          throw new Error("Failed to fetch ops data!");
+        }
+
+        const data = await response.json();
+        setOps(data);
+      } catch (err) {
+        setError("Unable to load ops data. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchOps();
   }, []);
 
+  //local storage for check-in/check-out state
   useEffect(() => {
     const stored = localStorage.getItem("checkState");
+
     if (stored) {
-      setCheckState(JSON.parse(stored));
+      try {
+        setCheckState(JSON.parse(stored));
+      } catch (e) {
+        console.error("Failed to parse checkState from localStorage", e);
+      }
     }
   }, []);
 
@@ -79,6 +102,7 @@ export default function Home() {
     localStorage.setItem("checkState", JSON.stringify(checkState));
   }, [checkState]);
 
+  // Check in / out
   const handleCheckIn = (id: number) => {
     setCheckState((prev) => ({
       ...prev,
@@ -100,30 +124,89 @@ export default function Home() {
   };
 
   const filteredOps = ops.filter((op) => {
-    const query = search.toLowerCase().trim();
+    const query = search.toLowerCase();
 
-    if (!query) return true;
+    const matchesOpTitle =
+      op.opTitle?.toLowerCase().includes(query);
 
-    const operatorMatch = op.operators?.some((o) =>
-      `${o.firstName} ${o.lastName}`
+    const matchesPublicId =
+      op.publicId?.toLowerCase().includes(query);
+
+    const matchesOperator = op.operators?.some((optr) =>
+      `${optr.firstName} ${optr.lastName}`
         .toLowerCase()
         .includes(query)
     );
 
-    return (
-      operatorMatch ||
-      op.opTitle?.toLowerCase().includes(query) ||
-      op.publicId?.toLowerCase().includes(query)
-    );
+    return matchesOpTitle || matchesPublicId || matchesOperator;
   });
 
+  // sort operators based on selected criteria and order
+  const sortOperators = (operators: Operators[]) => {
+    const sorted = [...operators];
+
+    sorted.sort((a, b) => {
+      if (sortBy === "name") {
+        const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+        const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+
+      if (sortBy === "opsCompleted") {
+        return a.opsCompleted - b.opsCompleted;
+      }
+
+      if (sortBy === "reliability") {
+        return a.reliability - b.reliability;
+      }
+
+      return 0;
+    });
+
+    return sortOrder === "asc" ? sorted : sorted.reverse();
+  };
+
   if (loading) {
-    return <Typography variant="h1">Loading...</Typography>;
+    return (
+      <Stack
+        sx={{
+          width: "100%",
+          height: "100vh",
+          justifyContent: "center",
+          alignItems: "center",
+        }}>
+        <Typography variant="h5">Loading...</Typography>
+      </Stack>
+    )
+  }
+
+  if (error) {
+    return (
+      <Stack
+        sx={{
+          width: "100%",
+          height: "100vh",
+          justifyContent: "center",
+          alignItems: "center",
+        }}>
+        <Typography variant="h5" color="error">
+          Something went wrong...
+        </Typography>
+
+        <Typography variant="body1">{error}</Typography>
+
+        <Button variant="contained" onClick={() => window.location.reload()} sx={{ width: "120px" }}>
+          Retry
+        </Button>
+      </Stack>
+    )
   }
 
   return (
     <Stack spacing={3} sx={{ p: 3 }}>
       <Typography variant="h4" fontWeight="bold">Operator Dashboard</Typography>
+
+      {/* Search Field */}
       <TextField
         label="Search by Operator Name, Op Title, or Public ID"
         fullWidth
@@ -132,118 +215,118 @@ export default function Home() {
         onChange={(e) => setSearch(e.target.value)}
         sx={{ mb: 2 }}
       />
-      {filteredOps?.map((op) => (
-        <Card key={op.opId} variant="outlined">
-          <CardContent>
-            <Typography variant="h5" fontWeight="bold">
-              {op.opTitle}
-            </Typography>
 
-            <Typography variant="body2" color="text.secondary">
-              Public ID: {op.publicId}
-            </Typography>
+      {/* Sort Options */}
+      <Stack direction="row" spacing={2}>
+        <FormControl size="small">
+          <InputLabel>Sort By</InputLabel>
+          <Select value={sortBy} label="Sort By" onChange={(e) => setSortBy(e.target.value)}>
+            <MenuItem value="name">First & Last Name</MenuItem>
+            <MenuItem value="opsCompleted">Ops Completed</MenuItem>
+            <MenuItem value="reliability">Reliability</MenuItem>
+          </Select>
+        </FormControl>
 
-            <Typography variant="body2" color="text.secondary">
-              Operators Needed: {op.operatorsNeeded}
-            </Typography>
+        <FormControl size="small">
+          <InputLabel>Order</InputLabel>
+          <Select value={sortOrder} label="Order" onChange={(e) => setSortOrder(e.target.value)}>
+            <MenuItem value="asc">Ascending</MenuItem>
+            <MenuItem value="desc">Descending</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
 
-            <Typography variant="body2" color="text.secondary">
-              Start Time: {moment(op.startTime).format("hh:mm A")}
-            </Typography>
+      {filteredOps.map((op) => {
+        const q = search.toLowerCase().trim();
 
-            <Typography variant="body2" color="text.secondary">
-              End Time: {moment(op.endTime).format("hh:mm A")}
-            </Typography>
+        const opMatchesQuery =
+          q && (op.publicId?.toLowerCase().includes(q) || op.opTitle?.toLowerCase().includes(q));
 
-            <Divider sx={{ my: 2 }} />
+        const operatorMatchesList = (op.operators || []).filter((o) =>
+          `${o.firstName} ${o.lastName}`.toLowerCase().includes(q)
+        );
 
-            <Box sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              px: 1.5,
-              py: 1,
-              backgroundColor: "#f5f5f5",
-              borderRadius: 1,
-            }}>
-              <Typography sx={{ width: "25%" }} variant="h6">Operator Name</Typography>
-              <Typography sx={{ width: "15%" }} variant="h6">Ops Completed</Typography>
-              <Typography sx={{ width: "15%" }} variant="h6">Reliability</Typography>
-              <Typography sx={{ width: "25%" }} variant="h6">Endorsements</Typography>
-              <Typography sx={{ width: "20%" }} variant="h6"></Typography>
-            </Box>
+        const operatorsList =
+          operatorMatchesList.length > 0
+            ? operatorMatchesList
+            : opMatchesQuery || !q
+              ? (op.operators || [])
+              : [];
 
-            <Divider sx={{ my: 1 }} />
+        const sortedOperators = sortOperators(operatorsList);
 
-            <Stack spacing={1} >
-              {(() => {
-                const operatorList = (op.operators || []).slice().sort((a, b) =>
-                  a.firstName.toLowerCase().localeCompare(b.firstName.toLowerCase())
-                );
-                
-                const matchingOperators = operatorList.filter((operator) =>
-                  `${operator.firstName} ${operator.lastName}`
-                    .toLowerCase()
-                    .includes(search.toLowerCase().trim())
-                );
+        return (
+          <Card key={op.opId} variant="outlined">
+            <CardContent>
+              <Typography variant="h6" fontWeight="bold">
+                {op.opTitle}
+              </Typography>
 
-                const operatorsToShow =
-                  search.trim() && matchingOperators.length > 0
-                    ? matchingOperators
-                    : operatorList;
+              <Typography variant="body2" color="text.secondary">
+                Public ID: {op.publicId}
+              </Typography>
 
-                return operatorsToShow.map((operator) => {
+              <Typography variant="body2" color="text.secondary">
+                Operators Needed: {op.operatorsNeeded}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                Start Time: {moment(op.startTime).format("hh:mm A")}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                End Time: {moment(op.endTime).format("hh:mm A")}
+              </Typography>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Box display="flex" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Typography width="25%" variant="h6">Operator Name</Typography>
+                <Typography width="15%" variant="h6">Ops Completed</Typography>
+                <Typography width="15%" variant="h6">Reliability</Typography>
+                <Typography width="25%" variant="h6">Endorsements</Typography>
+                <Typography width="20%" />
+              </Box>
+
+              <Divider sx={{ mb: 1 }} />
+
+              {
+                sortedOperators.map((operator) => {
                   const state = checkState[operator.id] || {
                     checkedIn: false,
                     checkedOut: false,
                   };
 
                   return (
-                    <Box key={operator.id}
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        px: 1.5,
-                        py: 1,
-                        border: "1px solid #eee",
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Typography sx={{ width: "25%" }} variant="body2">{operator.firstName} {operator.lastName}</Typography>
-                      <Typography sx={{ width: "15%" }} variant="body2">{operator.opsCompleted}</Typography>
-                      <Typography sx={{ width: "15%" }} variant="body2">{operator.reliability}</Typography>
+                    <Box key={operator.id} display="flex" justifyContent="space-between" alignItems="center" sx={{ py: 1 }}>
+                      <Typography width="25%">{operator.firstName} {operator.lastName}</Typography>
+                      <Typography width="15%">{operator.opsCompleted}</Typography>
+                      <Typography width="15%">{operator.reliability * 100}%</Typography>
 
-                      <Stack direction="row" spacing={0.5} sx={{ width: "25%", flexWrap: "wrap" }}>
-                        {operator.endorsements?.map((endorsement, index) => (
-                          <Chip key={index} label={endorsement} size="small" variant="outlined" />
+                      <Stack direction="row" spacing={1} width="25%">
+                        {operator.endorsements.map((endorsement, i) => (
+                          <Chip key={i} label={endorsement} size="small" />
                         ))}
                       </Stack>
 
-                      <Stack direction="row" spacing={1} sx={{ width: "20%" }}>
-                        <Button size="small"
-                          variant="contained"
-                          onClick={() =>
-                            handleCheckIn(operator.id)
-                          }
-                          disabled={state.checkedIn}>
+                      <Stack direction="row" spacing={1} width="20%">
+                        <Button size="small" variant="contained" disabled={state.checkedIn} onClick={() => handleCheckIn(operator.id)}>
                           Check In
                         </Button>
 
-                        <Button size="small"
-                          variant="outlined"
-                          onClick={() => handleCheckOut(operator.id)}
-                          disabled={!state.checkedIn || state.checkedOut}>
+                        <Button size="small" variant="outlined" disabled={!state.checkedIn || state.checkedOut} onClick={() => handleCheckOut(operator.id)}>
                           Check Out
                         </Button>
                       </Stack>
                     </Box>
                   );
-                });
-              })()}
-            </Stack>
-          </CardContent>
-        </Card>
-      ))}
+                })
+              }
+            </CardContent>
+          </Card>
+        )
+      })
+      }
     </Stack>
   );
 }
