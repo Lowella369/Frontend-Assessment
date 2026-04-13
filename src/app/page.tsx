@@ -16,7 +16,7 @@ import {
   MenuItem,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import moment from "moment";
+import dayjs from "dayjs";
 
 type Op = {
   opId: number;
@@ -271,11 +271,11 @@ export default function Home() {
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                Start Time: {moment(op.startTime).format("hh:mm A")}
+                Start Time: {op.startTime ? dayjs(op.startTime).format("hh:mm A") : "N/A"}
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                End Time: {moment(op.endTime).format("hh:mm A")}
+                End Time: {op.endTime ? dayjs(op.endTime).format("hh:mm A") : "N/A"}
               </Typography>
 
               <Divider sx={{ my: 2 }} />
